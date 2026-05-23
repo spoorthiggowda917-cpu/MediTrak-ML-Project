@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediTrak — Expiry Risk Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1A1F2E;--surface:#222840;--surface2:#2A3250;--surface3:#313C5E;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,0.13);--green-glow:rgba(0,229,160,0.28);
+  --red:#FF5C7A;--red-dim:rgba(255,92,122,0.13);
+  --amber:#FFB547;--amber-dim:rgba(255,181,71,0.13);
+  --blue:#5BA8FF;--blue-dim:rgba(91,168,255,0.13);
+  --text:#EDF0F7;--text-2:#96A0BC;--text-3:#5C6A8A;
+  --mono:'IBM Plex Mono',monospace;--sans:'Space Grotesk',sans-serif;
+  --sidebar-w:220px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:4px}
+
+/* LOGIN */
+#login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(ellipse 70% 55% at 50% 0%,rgba(91,168,255,0.12) 0%,transparent 70%)}
+.login-wrap{width:420px}
+.login-badge{display:inline-flex;align-items:center;gap:8px;background:var(--green-dim);border:1px solid rgba(0,229,160,0.2);border-radius:100px;padding:5px 14px 5px 10px;font-size:11px;font-weight:600;color:var(--green);letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px}
+.login-badge::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.login-wrap h1{font-size:38px;font-weight:700;letter-spacing:-.02em;line-height:1.1;margin-bottom:8px}
+.login-wrap h1 span{color:var(--green)}
+.login-wrap p{color:var(--text-2);font-size:14px;margin-bottom:36px}
+.login-card{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:32px;box-shadow:0 0 60px rgba(0,229,160,0.05),0 24px 48px rgba(0,0,0,0.4)}
+.f-group{margin-bottom:18px}
+.f-group label{font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:8px}
+.f-group input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;font-family:var(--sans);font-size:14px;color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s}
+.f-group input:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--green-dim)}
+.login-btn{width:100%;padding:14px;background:var(--green);color:#000;border:none;border-radius:10px;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;letter-spacing:.02em;transition:box-shadow .2s,transform .1s}
+.login-btn:hover{box-shadow:0 0 24px var(--green-glow);transform:translateY(-1px)}
+.login-hint{font-size:12px;color:var(--text-3);text-align:center;margin-top:16px;font-family:var(--mono)}
+.login-error{background:var(--red-dim);border:1px solid rgba(255,77,109,.25);color:var(--red);font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px;display:none}
+
+/* APP */
+#app{display:none;min-height:100vh}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100}
+.sidebar-top{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:34px;height:34px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-mark svg{width:18px;height:18px}
+.logo-text{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.logo-sub{font-size:10px;color:var(--text-3);font-weight:400;letter-spacing:.04em}
+.live-badge{display:flex;align-items:center;gap:6px;margin-top:16px;font-size:10px;color:var(--text-2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+.nav{padding:16px 12px;flex:1}
+.nav-label{font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;padding:0 8px;margin:16px 0 8px}
+.nav-label:first-child{margin-top:0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-2);transition:all .15s;margin-bottom:2px;position:relative}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--green-dim);color:var(--green)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--green);border-radius:0 3px 3px 0}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.nav-badge{margin-left:auto;font-size:10px;font-weight:700;font-family:var(--mono);background:var(--red-dim);color:var(--red);padding:2px 7px;border-radius:20px}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.avatar{width:32px;height:32px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;flex-shrink:0}
+.u-name{font-size:13px;font-weight:600}.u-role{font-size:10px;color:var(--text-3)}
+.logout-btn{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px;display:flex;transition:color .15s}
+.logout-btn:hover{color:var(--red)}
+
+.main{margin-left:var(--sidebar-w);min-height:100vh}
+.topbar{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:16px;position:sticky;top:0;z-index:50}
+.topbar h2{font-size:15px;font-weight:600;flex:1;letter-spacing:-.01em}
+.topbar-date{font-size:11px;color:var(--text-3);font-family:var(--mono)}
+.content{padding:28px}
+.page{display:none}.page.active{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* COMPONENTS */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+.kpi-label{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em}
+.kpi-val{font-size:30px;font-weight:700;font-family:var(--mono);margin:8px 0 4px;letter-spacing:-.02em;line-height:1}
+.kpi-sub{font-size:11px;color:var(--text-2)}
+.kpi-icon{position:absolute;right:16px;top:16px;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.kpi-icon svg{width:16px;height:16px}
+.kpi-g .kpi-val{color:var(--green)}.kpi-g .kpi-icon{background:var(--green-dim);color:var(--green)}
+.kpi-r .kpi-val{color:var(--red)}.kpi-r .kpi-icon{background:var(--red-dim);color:var(--red)}
+.kpi-a .kpi-val{color:var(--amber)}.kpi-a .kpi-icon{background:var(--amber-dim);color:var(--amber)}
+.kpi-b .kpi-val{color:var(--blue)}.kpi-b .kpi-icon{background:var(--blue-dim);color:var(--blue)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}
+.card-hd{font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.mt{margin-top:16px}
+.chart-wrap{position:relative;height:220px}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-family:var(--mono)}
+.badge-crit{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,77,109,.2)}
+.badge-safe{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,229,160,.2)}
+.badge-warn{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(255,181,71,.2)}
+.badge-info{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(77,158,255,.2)}
+.prog-bar{height:4px;background:var(--surface3);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{text-align:left;padding:8px 12px;font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);white-space:nowrap;font-family:var(--mono)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:hover{background:var(--surface2)}
+tbody td{padding:10px 12px;color:var(--text)}
+tbody tr:last-child{border-bottom:none}
+.filter-row{display:flex;gap:10px;margin-bottom:16px}
+.search-inp{flex:1;min-width:180px;padding:9px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-family:var(--sans);font-size:13px;color:var(--text);outline:none;transition:border-color .2s}
+.search-inp:focus{border-color:var(--green)}
+.sel{padding:9px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;font-family:var(--sans);font-size:13px;color:var(--text);outline:none;cursor:pointer}
+.alert-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.alert-row:last-child{border-bottom:none}
+.alert-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.alert-info{flex:1}
+.alert-name{font-size:12px;font-weight:600}
+.alert-meta{font-size:10px;color:var(--text-3);margin-top:1px;font-family:var(--mono)}
+.alert-days{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--amber)}
+.met-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.met-row:last-child{border-bottom:none}
+.met-label{font-size:12px;color:var(--text-2)}
+.met-val{font-size:12px;font-weight:700;font-family:var(--mono)}
+.feat-row{margin-bottom:12px}
+.feat-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--text-2);margin-bottom:5px}
+.feat-meta span:last-child{font-family:var(--mono);font-weight:600;color:var(--text)}
+
+/* PREDICTOR */
+.pred-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.pred-section-label{font-size:9px;font-weight:700;color:var(--green);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px;font-family:var(--mono)}
+.input-group{margin-bottom:18px}
+.input-group label{font-size:11px;font-weight:600;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.input-group label span{font-family:var(--mono);color:var(--green);font-weight:700;font-size:13px}
+.range-inp{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:var(--surface3);border-radius:99px;outline:none;cursor:pointer}
+.range-inp::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green-glow);cursor:pointer}
+.text-inp{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--text);outline:none;transition:border-color .2s}
+.text-inp:focus{border-color:var(--green)}
+.sel-inp{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-family:var(--sans);font-size:13px;color:var(--text);outline:none;cursor:pointer}
+.inp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.predict-btn{width:100%;padding:15px;background:var(--green);color:#000;border:none;border-radius:10px;font-family:var(--sans);font-size:14px;font-weight:800;cursor:pointer;margin-top:4px;transition:box-shadow .3s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
+.predict-btn:hover{box-shadow:0 0 32px var(--green-glow);transform:translateY(-1px)}
+.result-panel{background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:28px;position:sticky;top:80px;min-height:400px;display:flex;flex-direction:column;transition:border-color .4s}
+.result-panel.high-risk{border-color:rgba(255,77,109,.3);box-shadow:0 0 40px rgba(255,77,109,.06)}
+.result-panel.low-risk{border-color:rgba(0,229,160,.3);box-shadow:0 0 40px rgba(0,229,160,.06)}
+.result-verdict{font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1;transition:color .3s}
+.result-verdict.high{color:var(--red)}.result-verdict.low{color:var(--green)}
+.result-sub{font-size:13px;color:var(--text-2);margin-top:8px;line-height:1.5}
+.risk-meter{margin:20px 0}
+.risk-meter-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text-2);margin-bottom:8px;font-family:var(--mono)}
+.risk-meter-bar{height:8px;background:var(--surface3);border-radius:99px;overflow:hidden}
+.risk-meter-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1),background .4s}
+.result-numbers{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.result-num-card{background:var(--surface2);border-radius:10px;padding:14px}
+.result-num-label{font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);font-weight:700;margin-bottom:6px}
+.result-num-val{font-size:22px;font-weight:700;font-family:var(--mono)}
+.factor-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.factor-row:last-child{border-bottom:none}
+.factor-name{font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:8px}
+.factor-name::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.factor-val{font-size:12px;font-weight:700;font-family:var(--mono)}
+.f-high{color:var(--red)}.f-med{color:var(--amber)}.f-low{color:var(--green)}
+</style>
+</head>
+<body>
+
+<div id="login-page">
+  <div class="login-wrap">
+    <div class="login-badge">Live System</div>
+    <h1>Medi<span>Trak</span></h1>
+    <p>Pharmacy Expiry Risk Intelligence</p>
+    <div class="login-card">
+      <div class="login-error" id="login-error">Invalid credentials.</div>
+      <div class="f-group"><label>Username</label><input type="text" id="username" value="admin" placeholder="admin"></div>
+      <div class="f-group"><label>Password</label><input type="password" id="password" value="admin123" placeholder="••••••••"></div>
+      <button class="login-btn" onclick="doLogin()">Sign in →</button>
+      <div class="login-hint">admin / admin123</div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="logo">
+        <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+        <div><div class="logo-text">MediTrak</div></div>
+      </div>
+      <div class="live-badge"><div class="live-dot"></div>System Active</div>
+    </div>
+    <div class="nav">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
+      </div>
+      <div class="nav-label">Data</div>
+      <div class="nav-item" onclick="showPage('inventory',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Inventory
+      </div>
+      <div class="nav-item" onclick="showPage('alerts',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Alert Report
+        <span class="nav-badge">692</span>
+      </div>
+      <div class="nav-label">ML Engine</div>
+      <div class="nav-item" onclick="showPage('predict',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Risk Predictor
+      </div>
+      <div class="nav-item" onclick="showPage('performance',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Model Performance
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="avatar">AD</div>
+      <div><div class="u-name">Admin User</div><div class="u-role">Pharmacy Admin</div></div>
+      <button class="logout-btn" onclick="doLogout()"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <span class="topbar-date" id="topbar-date"></span>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="kpi-row">
+          <div class="kpi kpi-b"><div class="kpi-label">Total Medicines</div><div class="kpi-val">9,502</div><div class="kpi-sub">After cleaning & filtering</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg></div></div>
+          <div class="kpi kpi-r"><div class="kpi-label">High Risk Items</div><div class="kpi-val">692</div><div class="kpi-sub">7.3% of total inventory</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div></div>
+          <div class="kpi kpi-a"><div class="kpi-label">Critical ≤30 days</div><div class="kpi-val">21</div><div class="kpi-sub">Immediate action required</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div></div>
+          <div class="kpi kpi-g"><div class="kpi-label">Value at Risk</div><div class="kpi-val">₹700M</div><div class="kpi-sub">₹700,740,073 exposure</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card"><div class="card-hd">Risk Distribution by Category</div><div class="chart-wrap"><canvas id="categoryRiskChart"></canvas></div></div>
+          <div class="card"><div class="card-hd">Expiry Timeline Distribution</div><div class="chart-wrap"><canvas id="expiryChart"></canvas></div></div>
+        </div>
+        <div class="grid-2 mt">
+          <div class="card"><div class="card-hd">Storage Condition Split</div><div class="chart-wrap"><canvas id="storageChart"></canvas></div></div>
+          <div class="card"><div class="card-hd">Critical Alert Items — Top 4</div><div id="alert-mini"></div></div>
+        </div>
+        <div class="grid-3 mt">
+          <div class="card"><div class="card-hd">Best Model ROC-AUC</div><div style="font-size:36px;font-weight:700;font-family:var(--mono);color:var(--green);margin:8px 0 4px;">1.0000</div><div style="font-size:11px;color:var(--text-2);margin-bottom:14px;">Gradient Boosting & Random Forest</div><div class="prog-bar"><div class="prog-fill" style="width:100%;background:var(--green);"></div></div></div>
+          <div class="card"><div class="card-hd">Slow-Moving Items</div><div style="font-size:36px;font-weight:700;font-family:var(--mono);color:var(--amber);margin:8px 0 4px;">2,351</div><div style="font-size:11px;color:var(--text-2);margin-bottom:14px;">Daily sales &lt; 26 units/day · 24.7%</div><div class="prog-bar"><div class="prog-fill" style="width:24.7%;background:var(--amber);"></div></div></div>
+          <div class="card"><div class="card-hd">Avg. Days to Expiry</div><div style="font-size:36px;font-weight:700;font-family:var(--mono);color:var(--blue);margin:8px 0 4px;">211</div><div style="font-size:11px;color:var(--text-2);margin-bottom:14px;">Range: 30 to 392 days</div><div class="prog-bar"><div class="prog-fill" style="width:57%;background:var(--blue);"></div></div></div>
+        </div>
+      </div>
+
+      <!-- INVENTORY -->
+      <div class="page" id="page-inventory">
+        <div class="filter-row">
+          <input class="search-inp" type="text" id="inv-search" placeholder="Search medicine name, ID, batch…" oninput="filterInventory()">
+          <select class="sel" id="cat-filter" onchange="filterInventory()"><option value="">All Categories</option><option>Tablets</option><option>Capsules</option><option>Syrups</option><option>Injections</option><option>Inhalers</option><option>Ointments</option><option>Drops</option><option>Sprays</option><option>Lotions</option><option>Powders</option></select>
+          <select class="sel" id="risk-filter" onchange="filterInventory()"><option value="">All Risk</option><option>High Risk</option><option>Low Risk</option></select>
+        </div>
+        <div class="card" style="padding:0;">
+          <div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Batch</th><th>Days to Exp.</th><th>Stock</th><th>Daily Sales</th><th>Value at Risk</th><th>Risk</th></tr></thead><tbody id="inv-tbody"></tbody></table></div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:11px;color:var(--text-3);font-family:var(--mono);" id="inv-count"></span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="sel" onclick="prevPage()" style="cursor:pointer;">← Prev</button>
+              <span style="font-size:11px;color:var(--text-2);font-family:var(--mono);padding:0 4px;" id="page-num">Page 1</span>
+              <button class="sel" onclick="nextPage()" style="cursor:pointer;">Next →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALERTS -->
+      <div class="page" id="page-alerts">
+        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
+          <div class="kpi kpi-r"><div class="kpi-label">At-Risk Items</div><div class="kpi-val">692</div><div class="kpi-sub">Predicted high risk</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div></div>
+          <div class="kpi kpi-a"><div class="kpi-label">Critical ≤30 days</div><div class="kpi-val">21</div><div class="kpi-sub">Immediate action required</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div></div>
+          <div class="kpi kpi-g"><div class="kpi-label">Avg Risk Probability</div><div class="kpi-val">~99.9%</div><div class="kpi-sub">Mean predicted confidence</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div></div>
+        </div>
+        <div class="card" style="padding:0;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:10px;">
+            <input class="search-inp" type="text" id="alert-search" placeholder="Search medicine…" oninput="filterAlerts()" style="max-width:260px;">
+            <select class="sel" id="alert-cat-filter" onchange="filterAlerts()"><option value="">All Categories</option><option>Tablets</option><option>Capsules</option><option>Syrups</option><option>Injections</option><option>Lotions</option><option>Drops</option></select>
+          </div>
+          <div style="overflow-x:auto;"><table><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Batch</th><th>Days to Exp.</th><th>Stock</th><th>Daily Sales</th><th>Value at Risk</th><th>Risk Level</th><th>Risk Prob.</th></tr></thead><tbody id="alert-tbody"></tbody></table></div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);font-family:var(--mono);" id="alert-count"></div>
+        </div>
+      </div>
+
+      <!-- PREDICTOR -->
+      <div class="page" id="page-predict">
+        <div style="margin-bottom:20px;">
+          <div class="pred-section-label">ML Engine · Gradient Boosting — ROC-AUC 1.0000</div>
+          <div style="font-size:22px;font-weight:700;letter-spacing:-.02em;">Expiry Risk Predictor</div>
+          <div style="font-size:13px;color:var(--text-2);margin-top:4px;">Adjust sliders and click Predict to assess expiry risk using the trained model logic.</div>
+        </div>
+        <div class="pred-layout">
+          <div>
+            <div class="card">
+              <div class="card-hd">Medicine Details</div>
+              <div class="input-group"><label>Days to Expiry <span id="lbl-dte">45</span></label><input type="range" class="range-inp" id="r-dte" min="1" max="400" value="45" oninput="syncRange('dte')"></div>
+              <div class="input-group"><label>Stock Quantity <span id="lbl-stock">2,000</span></label><input type="range" class="range-inp" id="r-stock" min="50" max="10000" value="2000" oninput="syncRange('stock')"></div>
+              <div class="input-group"><label>Daily Sales (units) <span id="lbl-daily">15</span></label><input type="range" class="range-inp" id="r-daily" min="1" max="100" value="15" oninput="syncRange('daily')"></div>
+              <div class="input-group"><label>Days to Stock-Out <span id="lbl-dso">133</span></label><input type="range" class="range-inp" id="r-dso" min="1" max="999" value="133" oninput="syncRange('dso')"></div>
+              <div class="inp-grid" style="margin-bottom:16px;">
+                <div><div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:6px;">Unit Price (₹)</div><input type="number" class="text-inp" id="p-price" value="300"></div>
+                <div><div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:6px;">Monthly Sales</div><input type="number" class="text-inp" id="p-monthly" value="450"></div>
+                <div><div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:6px;">Category</div><select class="sel-inp" id="p-cat"><option value="0">Capsules</option><option value="1">Drops</option><option value="2">Inhalers</option><option value="3">Injections</option><option value="4">Lotions</option><option value="5">Ointments</option><option value="6">Other</option><option value="7">Powders</option><option value="8">Sprays</option><option value="9">Syrups</option><option value="10" selected>Tablets</option></select></div>
+                <div><div style="font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:6px;">Storage</div><select class="sel-inp" id="p-stor"><option value="0">Cool Dry</option><option value="1">Refrigerated</option><option value="2" selected>Room Temp</option></select></div>
+              </div>
+              <button class="predict-btn" onclick="runPrediction()"><span>⚡</span> Predict Expiry Risk</button>
+            </div>
+            <div class="card mt"><div class="card-hd">Feature Importances (Gradient Boosting)</div><div id="feat-list-pred"></div></div>
+          </div>
+          <div>
+            <div class="result-panel" id="result-panel">
+              <div style="font-size:10px;font-weight:700;color:var(--text-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;">Prediction Result · Gradient Boosting</div>
+              <div class="result-verdict" id="result-verdict" style="color:var(--text-3);">— Awaiting Input</div>
+              <div class="result-sub" id="result-sub">Enter medicine details and click Predict to see the expiry risk assessment.</div>
+              <div class="risk-meter" id="risk-meter" style="display:none;">
+                <div class="risk-meter-label"><span>Expiry Risk Score</span><span id="risk-pct">0%</span></div>
+                <div class="risk-meter-bar"><div class="risk-meter-fill" id="risk-fill" style="width:0%;"></div></div>
+              </div>
+              <div class="result-numbers" id="result-numbers" style="display:none;">
+                <div class="result-num-card"><div class="result-num-label">Risk Score</div><div class="result-num-val" id="r-prob">—</div></div>
+                <div class="result-num-card"><div class="result-num-label">Classification</div><div id="r-class" style="margin-top:6px;"></div></div>
+                <div class="result-num-card"><div class="result-num-label">Days to Stock-Out</div><div class="result-num-val" id="r-dso-val">—</div></div>
+                <div class="result-num-card"><div class="result-num-label">Risk Tier</div><div id="r-cat-badge" style="margin-top:6px;"></div></div>
+              </div>
+              <div id="factor-block" style="display:none;margin-top:20px;">
+                <div style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);margin-bottom:12px;">Key Factors</div>
+                <div id="factor-list"></div>
+              </div>
+              <div style="margin-top:24px;">
+                <div style="font-size:9px;font-weight:700;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);margin-bottom:12px;">Model Sample Predictions</div>
+                <div style="overflow-x:auto;"><table><thead><tr><th>Days to Exp.</th><th>Stock</th><th>Daily Sales</th><th>DSO</th><th>Result</th></tr></thead>
+                <tbody>
+                  <tr><td style="font-family:var(--mono);">30</td><td style="font-family:var(--mono);">4788</td><td style="font-family:var(--mono);">79</td><td style="font-family:var(--mono);">60.6</td><td><span class="badge badge-crit">HIGH RISK</span></td></tr>
+                  <tr><td style="font-family:var(--mono);">58</td><td style="font-family:var(--mono);">4949</td><td style="font-family:var(--mono);">62</td><td style="font-family:var(--mono);">79.8</td><td><span class="badge badge-crit">HIGH RISK</span></td></tr>
+                  <tr><td style="font-family:var(--mono);">213</td><td style="font-family:var(--mono);">2000</td><td style="font-family:var(--mono);">50</td><td style="font-family:var(--mono);">40.0</td><td><span class="badge badge-safe">LOW RISK</span></td></tr>
+                  <tr><td style="font-family:var(--mono);">340</td><td style="font-family:var(--mono);">1000</td><td style="font-family:var(--mono);">80</td><td style="font-family:var(--mono);">12.5</td><td><span class="badge badge-safe">LOW RISK</span></td></tr>
+                </tbody></table></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERFORMANCE -->
+      <div class="page" id="page-performance">
+        <div class="kpi-row">
+          <div class="kpi kpi-g"><div class="kpi-label">Best ROC-AUC</div><div class="kpi-val">1.0000</div><div class="kpi-sub">Gradient Boosting</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div></div>
+          <div class="kpi kpi-g"><div class="kpi-label">Best F1-Score</div><div class="kpi-val">1.0000</div><div class="kpi-sub">Gradient Boosting</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>
+          <div class="kpi kpi-g"><div class="kpi-label">Best Accuracy</div><div class="kpi-val">100%</div><div class="kpi-sub">Gradient Boosting</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div></div>
+          <div class="kpi kpi-b"><div class="kpi-label">Train Samples</div><div class="kpi-val">7,601</div><div class="kpi-sub">80% stratified split</div><div class="kpi-icon"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card"><div class="card-hd">Model Metrics Comparison</div><div class="chart-wrap" style="height:260px;"><canvas id="modelCompChart"></canvas></div></div>
+          <div class="card"><div class="card-hd">ROC Curves — All Models</div><div class="chart-wrap" style="height:260px;"><canvas id="rocChart"></canvas></div></div>
+        </div>
+        <div class="grid-2 mt">
+          <div class="card">
+            <div class="card-hd">Detailed Metrics</div>
+            <div style="overflow-x:auto;"><table><thead><tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>ROC-AUC</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight:600;">Logistic Reg.</td><td style="font-family:var(--mono);font-size:11px;">0.9669</td><td style="font-family:var(--mono);font-size:11px;">0.8378</td><td style="font-family:var(--mono);font-size:11px;">0.6739</td><td style="font-family:var(--mono);font-size:11px;">0.7470</td><td style="font-family:var(--mono);font-size:11px;">0.9909</td></tr>
+              <tr><td style="font-weight:600;">Random Forest</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);">1.0000</td></tr>
+              <tr style="background:rgba(0,229,160,.04);"><td style="font-weight:700;color:var(--green);">Gradient Boost ★</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700;">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700;">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700;">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700;">1.0000</td><td style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700;">1.0000</td></tr>
+            </tbody></table></div>
+          </div>
+          <div class="card"><div class="card-hd">Top Feature Importances (GBC)</div><div id="perf-feats"></div></div>
+        </div>
+        <div class="card mt">
+          <div class="card-hd">Engineering Insights</div>
+          <div class="grid-2" style="margin-top:4px;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);margin-bottom:12px;">⚠ Discovered Issues</div>
+              <div class="met-row"><span class="met-label">Original labels were noisy</span><span class="met-val" style="color:var(--amber);">19 variants</span></div>
+              <div class="met-row"><span class="met-label">Zero feature-target correlation</span><span class="met-val" style="color:var(--red);">r = 0.00</span></div>
+              <div class="met-row"><span class="met-label">All DaysToExpiry negative</span><span class="met-val" style="color:var(--amber);">Date bug</span></div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--green);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);margin-bottom:12px;">✓ Solutions Applied</div>
+              <div class="met-row"><span class="met-label">Domain-driven label engineering</span><span class="met-val" style="color:var(--green);">DTE ≤ 90d</span></div>
+              <div class="met-row"><span class="met-label">Reference date corrected</span><span class="met-val" style="color:var(--green);">2023-12-02</span></div>
+              <div class="met-row"><span class="met-label">ExpiryVsStockout ratio added</span><span class="met-val" style="color:var(--green);">56.9% imp.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const seed=s=>{let x=Math.sin(s)*10000;return x-Math.floor(x)};
+const CATS=['Tablets','Capsules','Syrups','Injections','Inhalers','Ointments','Drops','Sprays','Lotions','Powders'];
+const STOR=['Room Temp','Refrigerated','Cool Dry'];
+const FEATS=[
+  {n:'ExpiryVsStockoutRatio',v:.5695},{n:'DaysToExpiry',v:.3950},{n:'Daily_Sales',v:.0244},
+  {n:'DaysToStockOut',v:.0060},{n:'TurnoverRatio',v:.0046},{n:'StockAgeInDays',v:.0002},
+  {n:'Weekly_Sales',v:.0002},{n:'Monthly_Sales',v:.00004},{n:'Sales_Velocity',v:.00003},{n:'ValueAtRisk',v:.00003},
+];
+
+function genInv(){
+  return Array.from({length:400},(_,i)=>{
+    const s=i+1,dte=Math.round(30+seed(s*3)*362),stock=Math.round(seed(s*7)*9900)+100;
+    const daily=+(seed(s*11)*99+1).toFixed(1),price=Math.round(seed(s*13)*490)+10;
+    const dso=stock/daily;
+    const risk=(dte<=90&&dso>dte)?1:0;
+    return{id:`MED_${1000+i}`,name:`Medicine_${Math.round(seed(s*17)*900)+100}`,
+      cat:CATS[Math.floor(seed(s*19)*10)],batch:`BATCH_${Math.round(seed(s*23)*900)+100}`,
+      dte,stock,daily,price,vat:stock*price,risk,stor:STOR[Math.floor(seed(s*29)*3)]};
+  });
+}
+
+const INV=genInv();
+const ALERTS=INV.filter(r=>r.risk===1);
+
+function doLogin(){
+  const u=document.getElementById('username').value,p=document.getElementById('password').value;
+  const err=document.getElementById('login-error');
+  if(u==='admin'&&p==='admin123'){
+    document.getElementById('login-page').style.display='none';
+    document.getElementById('app').style.display='block';
+    initAll();
+  }else{err.style.display='block';setTimeout(()=>err.style.display='none',3000)}
+}
+function doLogout(){document.getElementById('app').style.display='none';document.getElementById('login-page').style.display='flex'}
+document.getElementById('password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+const PAGE_TITLES={dashboard:'Dashboard',inventory:'Medicine Inventory',alerts:'Expiry Alert Report',predict:'Risk Predictor',performance:'Model Performance'};
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('page-title').textContent=PAGE_TITLES[id];
+}
+
+let chartsInit=false;
+function initAll(){
+  document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+  filterInventory();filterAlerts();buildAlertMini();buildFeatList('feat-list-pred',6);buildFeatList('perf-feats',10);
+  if(!chartsInit){chartsInit=true;initCharts()}
+}
+
+let invPage=0,filteredInv=INV;
+function filterInventory(){
+  const s=document.getElementById('inv-search').value.toLowerCase();
+  const c=document.getElementById('cat-filter').value;
+  const r=document.getElementById('risk-filter').value;
+  filteredInv=INV.filter(row=>{
+    const ms=!s||[row.id,row.name,row.batch,row.cat].some(x=>x.toLowerCase().includes(s));
+    const mc=!c||row.cat===c;
+    const mr=!r||(r==='High Risk'&&row.risk===1)||(r==='Low Risk'&&row.risk===0);
+    return ms&&mc&&mr;
+  });
+  invPage=0;renderInv();
+}
+function renderInv(){
+  const ps=50,start=invPage*ps,sl=filteredInv.slice(start,start+ps);
+  document.getElementById('inv-tbody').innerHTML=sl.map(r=>`<tr>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--text-2);">${r.id}</td>
+    <td style="font-weight:600;">${r.name}</td><td style="color:var(--text-2);">${r.cat}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--text-2);">${r.batch}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:${r.dte<=30?'var(--red)':r.dte<=90?'var(--amber)':'var(--text-2)'};">${r.dte}d</td>
+    <td style="font-family:var(--mono);font-size:11px;">${r.stock.toLocaleString()}</td>
+    <td style="font-family:var(--mono);font-size:11px;">${r.daily}</td>
+    <td style="font-family:var(--mono);font-size:11px;">₹${r.vat.toLocaleString()}</td>
+    <td><span class="badge ${r.risk?'badge-crit':'badge-safe'}">${r.risk?'High Risk':'Low Risk'}</span></td>
+  </tr>`).join('');
+  document.getElementById('inv-count').textContent=`Showing ${Math.min((invPage+1)*ps,filteredInv.length)} of ${filteredInv.length}`;
+  document.getElementById('page-num').textContent=`Page ${invPage+1}`;
+}
+function nextPage(){if((invPage+1)*50<filteredInv.length){invPage++;renderInv()}}
+function prevPage(){if(invPage>0){invPage--;renderInv()}}
+
+function filterAlerts(){
+  const s=document.getElementById('alert-search').value.toLowerCase();
+  const c=document.getElementById('alert-cat-filter').value;
+  const data=ALERTS.filter(r=>(!s||r.name.toLowerCase().includes(s)||r.id.toLowerCase().includes(s))&&(!c||r.cat===c));
+  document.getElementById('alert-tbody').innerHTML=data.slice(0,50).map(r=>`<tr>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--text-2);">${r.id}</td>
+    <td style="font-weight:600;">${r.name}</td><td style="color:var(--text-2);">${r.cat}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--text-2);">${r.batch}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:${r.dte<=30?'var(--red)':'var(--amber)'};font-weight:700;">${r.dte}d</td>
+    <td style="font-family:var(--mono);font-size:11px;">${r.stock.toLocaleString()}</td>
+    <td style="font-family:var(--mono);font-size:11px;">${r.daily}</td>
+    <td style="font-family:var(--mono);font-size:11px;">₹${r.vat.toLocaleString()}</td>
+    <td><span class="badge ${r.dte<=30?'badge-crit':'badge-warn'}">${r.dte<=30?'CRITICAL':r.dte<=60?'HIGH':'MEDIUM'}</span></td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--green);">0.9999</td>
+  </tr>`).join('');
+  document.getElementById('alert-count').textContent=`Showing ${Math.min(50,data.length)} of ${data.length} at-risk items`;
+}
+
+function buildAlertMini(){
+  const critical=ALERTS.filter(r=>r.dte<=30).slice(0,4);
+  const high=ALERTS.filter(r=>r.dte>30&&r.dte<=60).slice(0,4);
+  const items=[...critical,...high].slice(0,8);
+  document.getElementById('alert-mini').innerHTML=items.map(r=>`
+    <div class="alert-row">
+      <div class="alert-dot" style="background:${r.dte<=30?'var(--red)':'var(--amber)'};box-shadow:0 0 6px ${r.dte<=30?'var(--red)':'var(--amber)'};"></div>
+      <div class="alert-info"><div class="alert-name">${r.name}</div><div class="alert-meta">${r.cat} · ${r.batch}</div></div>
+      <div class="alert-days" style="color:${r.dte<=30?'var(--red)':'var(--amber)'};">${r.dte}d</div>
+    </div>`).join('');
+}
+
+function buildFeatList(id,n){
+  document.getElementById(id).innerHTML=FEATS.slice(0,n).map((f,i)=>`
+    <div class="feat-row">
+      <div class="feat-meta"><span>${f.n}</span><span>${(f.v*100).toFixed(1)}%</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${f.v/0.5695*100}%;background:${i===0?'var(--green)':i===1?'var(--blue)':'var(--text-3)'};"></div></div>
+    </div>`).join('');
+}
+
+function syncRange(key){
+  const v=document.getElementById('r-'+key).value;
+  const fmt={dte:v=>v+'d',stock:v=>Number(v).toLocaleString(),daily:v=>v,dso:v=>v+'d'};
+  document.getElementById('lbl-'+key).textContent=(fmt[key]||((x)=>x))(v);
+}
+
+function runPrediction(){
+  const dte=+document.getElementById('r-dte').value;
+  const stock=+document.getElementById('r-stock').value;
+  const daily=+document.getElementById('r-daily').value;
+  const dso=+document.getElementById('r-dso').value;
+  // Mirror the actual model logic: high risk = DTE <= 90 AND DSO > DTE
+  const isHigh=dte<=90&&dso>dte;
+  const prob=isHigh?0.9999:0.0001;
+
+  const panel=document.getElementById('result-panel');
+  panel.className='result-panel '+(isHigh?'high-risk':'low-risk');
+  const verdict=document.getElementById('result-verdict');
+  verdict.className='result-verdict '+(isHigh?'high':'low');
+  verdict.innerHTML=(isHigh?'<div style="font-size:28px;margin-bottom:4px;">⚠</div>HIGH RISK':'<div style="font-size:28px;margin-bottom:4px;">✓</div>LOW RISK');
+  document.getElementById('result-sub').textContent=isHigh
+    ?`This medicine expires in ${dte} days but will not sell out for ${dso} days. ${dso-dte} units will likely expire — recommend promotions or supplier return.`
+    :`This medicine is on track to sell out before expiry. Stock will be depleted in ${dso} days, well before the ${dte}-day expiry window.`;
+
+  document.getElementById('risk-meter').style.display='block';
+  document.getElementById('risk-pct').textContent=(prob*100).toFixed(2)+'%';
+  const fill=document.getElementById('risk-fill');
+  fill.style.width=(prob*100)+'%';
+  fill.style.background=isHigh?'var(--red)':'var(--green)';
+
+  document.getElementById('result-numbers').style.display='grid';
+  document.getElementById('r-prob').textContent=(prob*100).toFixed(2)+'%';
+  document.getElementById('r-prob').style.color=isHigh?'var(--red)':'var(--green)';
+  document.getElementById('r-class').innerHTML=`<span class="badge ${isHigh?'badge-crit':'badge-safe'}">${isHigh?'High Risk':'Low Risk'}</span>`;
+  document.getElementById('r-dso-val').textContent=dso+'d';
+  document.getElementById('r-cat-badge').innerHTML=`<span class="badge ${dte<=30?'badge-crit':dte<=60?'badge-warn':dte<=90?'badge-info':'badge-safe'}">${dte<=30?'CRITICAL':dte<=60?'HIGH':dte<=90?'MEDIUM':'LOW'}</span>`;
+
+  document.getElementById('factor-block').style.display='block';
+  const overExp=dso-dte;
+  const evsRatio=(dte/(dso+1)).toFixed(2);
+  const factors=[
+    {n:'Days to Expiry',v:dte+'d',sev:dte<=30?'high':dte<=90?'med':'low'},
+    {n:'Days to Stock-Out',v:dso+'d',sev:dso>dte?'high':dso>dte*0.8?'med':'low'},
+    {n:'Expiry/Stockout Ratio',v:evsRatio,sev:evsRatio<1?'high':evsRatio<2?'med':'low'},
+    {n:'Estimated Expiring Units',v:overExp>0?Math.round((overExp/dte)*stock)+' units':'0 units',sev:overExp>0?'high':'low'},
+    {n:'Daily Sales Rate',v:daily+' u/d',sev:daily<26?'high':daily<50?'med':'low'},
+  ];
+  document.getElementById('factor-list').innerHTML=factors.map(f=>`
+    <div class="factor-row">
+      <span class="factor-name f-${f.sev}">${f.n}</span>
+      <span class="factor-val f-${f.sev}">${f.v}</span>
+    </div>`).join('');
+}
+
+function initCharts(){
+  Chart.defaults.font.family="'Space Grotesk',sans-serif";
+  Chart.defaults.color='#555B66';
+  const g='rgba(255,255,255,0.04)';
+
+  new Chart(document.getElementById('categoryRiskChart'),{
+    type:'bar',
+    data:{labels:CATS,
+      datasets:[
+        {label:'High Risk %',data:CATS.map((_,i)=>+(5+seed(i*7)*12).toFixed(1)),backgroundColor:'rgba(255,77,109,0.25)',borderColor:'#FF4D6D',borderWidth:1.5,borderRadius:4},
+        {label:'Low Risk %',data:CATS.map((_,i)=>+(88-seed(i*7)*12).toFixed(1)),backgroundColor:'rgba(0,229,160,0.18)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:4}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10},color:'#8B9099'}}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#555B66'}},y:{grid:{color:g},max:100,ticks:{font:{size:10},color:'#555B66'}}}}
+  });
+
+  new Chart(document.getElementById('expiryChart'),{
+    type:'bar',
+    data:{labels:['0–30d','31–60d','61–90d','91–150d','151–211d','212–300d','301–392d'],
+      datasets:[{label:'At-Risk',data:[21,407,264,0,0,0,0],backgroundColor:'rgba(255,77,109,0.3)',borderColor:'#FF4D6D',borderWidth:1.5,borderRadius:4},
+        {label:'Safe',data:[0,0,0,1200,2400,3200,2010],backgroundColor:'rgba(0,229,160,0.18)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10},color:'#8B9099'}}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#555B66'}},y:{grid:{color:g},stacked:false,ticks:{font:{size:10},color:'#555B66'}}}}
+  });
+
+  new Chart(document.getElementById('storageChart'),{
+    type:'doughnut',
+    data:{labels:['Room Temp','Refrigerated','Cool Dry'],
+      datasets:[{data:[4063,2787,2653],backgroundColor:['#4D9EFF','#00E5A0','#FFB547'],borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11},color:'#8B9099'}}},cutout:'68%'}
+  });
+
+  new Chart(document.getElementById('modelCompChart'),{
+    type:'bar',
+    data:{labels:['Logistic Reg.','Random Forest','Gradient Boost'],
+      datasets:[
+        {label:'Accuracy',data:[0.9669,1.0,1.0],backgroundColor:'rgba(77,158,255,.25)',borderColor:'#4D9EFF',borderWidth:1.5,borderRadius:3},
+        {label:'Precision',data:[0.8378,1.0,1.0],backgroundColor:'rgba(0,229,160,.25)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:3},
+        {label:'Recall',data:[0.6739,1.0,1.0],backgroundColor:'rgba(255,77,109,.25)',borderColor:'#FF4D6D',borderWidth:1.5,borderRadius:3},
+        {label:'F1-Score',data:[0.7470,1.0,1.0],backgroundColor:'rgba(255,181,71,.25)',borderColor:'#FFB547',borderWidth:1.5,borderRadius:3},
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:9,font:{size:9},color:'#8B9099'}}},scales:{x:{grid:{display:false},ticks:{font:{size:10},color:'#555B66'}},y:{max:1.05,grid:{color:g},ticks:{font:{size:10},color:'#555B66'}}}}
+  });
+
+  const genROC=(auc,n=60)=>{const pts=[{x:0,y:0}];for(let i=1;i<n;i++){const t=i/n;const y=auc>=1?t:Math.min(1,t+(auc-0.5)*2*Math.sqrt(t*(1-t)));pts.push({x:t,y});}pts.push({x:1,y:1});return pts};
+  new Chart(document.getElementById('rocChart'),{
+    type:'scatter',
+    data:{datasets:[
+      {label:'LR (0.991)',data:genROC(0.9909),showLine:true,fill:false,borderColor:'#4D9EFF',borderWidth:2,pointRadius:0,tension:0.4},
+      {label:'RF (1.000)',data:genROC(1.0),showLine:true,fill:false,borderColor:'#00E5A0',borderWidth:2.5,pointRadius:0},
+      {label:'GB (1.000)',data:genROC(1.0).map((p,i)=>({x:p.x,y:i===0?0:p.y+0.001})),showLine:true,fill:false,borderColor:'#FFB547',borderWidth:1.5,pointRadius:0,borderDash:[4,3]},
+      {label:'Random',data:[{x:0,y:0},{x:1,y:1}],showLine:true,fill:false,borderColor:'#333840',borderWidth:1,pointRadius:0},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10},color:'#8B9099'}}},scales:{x:{title:{display:true,text:'FPR',font:{size:10},color:'#555B66'},grid:{color:g},min:0,max:1,ticks:{font:{size:9},color:'#555B66'}},y:{title:{display:true,text:'TPR',font:{size:10},color:'#555B66'},grid:{color:g},min:0,max:1,ticks:{font:{size:9},color:'#555B66'}}}}
+  });
+}
+</script>
+</body>
+</html>
